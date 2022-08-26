@@ -52,7 +52,7 @@ func (worker *CronWorker) StartWorker(handler JobHandler) {
 	cron.Start()
 }
 
-func (worker *CronWorker) StopWorker(cancel context.CancelFunc) error {
+func (worker *CronWorker) StopWorker() error {
 	<-worker.c.Stop().Done()
 	return nil
 }

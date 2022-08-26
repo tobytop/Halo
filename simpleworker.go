@@ -7,7 +7,7 @@ import (
 
 type Worker interface {
 	StartWorker(handler JobHandler)
-	StopWorker(cancel context.CancelFunc) error
+	StopWorker() error
 }
 
 type SimpleWorker struct {
@@ -60,7 +60,6 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 	}
 }
 
-func (worker *SimpleWorker) StopWorker(cancel context.CancelFunc) error {
-	cancel()
+func (worker *SimpleWorker) StopWorker() error {
 	return nil
 }

@@ -19,6 +19,7 @@ type Client struct {
 	retryInterval int64
 	initFunc      func(channel netty.Channel)
 	handlers      map[string]JobHandler
+	jobs          []Worker
 	ctx           context.Context
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
@@ -29,6 +30,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		addr:          addr,
 		retryInterval: 120,
 		retryCount:    3,
+		jobs:          []Worker{},
 		handlers:      handlers(),
 		ctx:           ctx,
 	}
@@ -117,18 +119,26 @@ func (c *Client) startNewJob(msg []byte) {
 			job = NewSimpleWorker(c.ctx, jobInfo)
 		}
 		job.StartWorker(handler)
+		c.jobs = append(c.jobs, job)
 	} else {
 		log.Println("ERROR", "the handler not found")
 	}
 }
 
 func (c *Client) StopServer() {
-	if c.conn != nil {
-		sendMsg := &SendMsg[SendData]{
-			Option: Msg_Stop,
+	defer func() {
+		if c.conn != nil {
+			sendMsg := &SendMsg[SendData]{
+				Option: Msg_Stop,
+			}
+			data, _ := json.Marshal(sendMsg)
+			c.conn.Write(data)
+			c.bootstrap.Shutdown()
 		}
-		data, _ := json.Marshal(sendMsg)
-		c.conn.Write(data)
-		c.bootstrap.Shutdown()
+	}()
+	for _, job := range c.jobs {
+		ants.Submit(func() {
+			job.StopWorker()
+		})
 	}
 }
