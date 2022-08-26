@@ -28,9 +28,8 @@ type SendMsg[T interface{}] struct {
 }
 
 type SendData struct {
-	JobId   string   `json:"jobid"`
-	Handler string   `json:"handler"`
-	Types   []string `json:"types"`
+	JobId   string `json:"jobid"`
+	Handler string `json:"handler"`
 }
 
 type ResultData[T interface{}] struct {

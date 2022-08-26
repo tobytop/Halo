@@ -82,7 +82,7 @@ func (center *Server) HandleActive(ctx netty.ActiveContext) {
 
 func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message) {
 	msg := message.(string)
-	sendMsg := new(SendMsg[SendData])
+	sendMsg := new(SendMsg[interface{}])
 	if err := json.Unmarshal([]byte(msg), sendMsg); err != nil {
 		log.Print("err json" + msg)
 		return
@@ -90,7 +90,8 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 	addr := ctx.Channel().RemoteAddr()
 	switch sendMsg.Option {
 	case Msg_Hunting:
-		job := center.consortor.huntingJob(addr, sendMsg.Data.JobId)
+		data := sendMsg.Data.(SendData)
+		job := center.consortor.huntingJob(addr, data.JobId)
 		if job != nil {
 			msg := &controlMsg{
 				job:     *job,
@@ -102,14 +103,15 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 	case Msg_Server:
 		center.mu.Lock()
 		defer center.mu.Unlock()
+		data := sendMsg.Data.([]string)
 		if value, ok := center.connects[addr]; ok {
 			value.status = ACTIVE
-			value.Types = sendMsg.Data.Types
+			value.Types = data
 		} else {
 			center.connects[addr] = &serverInfo{
 				channel: ctx.Channel(),
 				status:  ACTIVE,
-				Types:   sendMsg.Data.Types,
+				Types:   data,
 			}
 		}
 	case Msg_Stop:
