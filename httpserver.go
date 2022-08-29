@@ -27,7 +27,9 @@ func NewHttpServer(ctx context.Context, port int, consortor Consortor) *HttpServ
 		ctx:       ctx,
 	}
 	httpMux := http.NewServeMux()
-	httpMux.HandleFunc("/addjob", server.handlerReq)
+	httpMux.HandleFunc("/addjob", server.handlerAddjob)
+	httpMux.HandleFunc("/listjob", server.handlerListjob)
+	httpMux.HandleFunc("/deletejob", server.handlerDeletejob)
 	server.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
 			// decode http request from channel
@@ -40,7 +42,7 @@ func NewHttpServer(ctx context.Context, port int, consortor Consortor) *HttpServ
 	return server
 }
 
-func (h *HttpServer) handlerReq(writer http.ResponseWriter, request *http.Request) {
+func (h *HttpServer) handlerAddjob(writer http.ResponseWriter, request *http.Request) {
 	content, _ := io.ReadAll(request.Body)
 	jobContext := new(JobContext)
 	if err := json.Unmarshal(content, jobContext); err == nil {
@@ -57,6 +59,24 @@ func (h *HttpServer) handlerReq(writer http.ResponseWriter, request *http.Reques
 		writer.Write(data)
 	} else {
 		writer.Write([]byte(err.Error()))
+	}
+}
+func (h *HttpServer) handlerListjob(writer http.ResponseWriter, request *http.Request) {
+	data, _ := json.Marshal(h.consortor.listJob())
+	writer.Write(data)
+}
+
+func (h *HttpServer) handlerDeletejob(writer http.ResponseWriter, request *http.Request) {
+	jobid := request.URL.Query().Get("jobid")
+	if err := h.consortor.deleteJob(jobid); err != nil {
+		writer.Write([]byte(err.Error()))
+	} else {
+		reuslt := &ResultData[string]{
+			Message: "Sccuess",
+			Data:    jobid,
+		}
+		data, _ := json.Marshal(reuslt)
+		writer.Write(data)
 	}
 }
 

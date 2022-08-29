@@ -7,7 +7,6 @@ import (
 
 type Worker interface {
 	StartWorker(handler JobHandler)
-	StopWorker()
 }
 
 type SimpleWorker struct {
@@ -21,7 +20,6 @@ type SimpleWorker struct {
 	RetryInterval int
 	JobData       map[string]string
 	ctx           context.Context
-	stop          chan byte
 	client        *Client
 }
 
@@ -37,7 +35,6 @@ func NewSimpleWorker(ctx context.Context, job JobContext, client *Client) *Simpl
 		RetryInterval: job.RetryInterval,
 		JobData:       job.JobData,
 		ctx:           ctx,
-		stop:          make(chan byte),
 		client:        client,
 	}
 }
@@ -51,8 +48,6 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 	}
 	defer beginConter.Stop()
 	select {
-	case <-worker.stop:
-		return
 	case <-worker.ctx.Done():
 		return
 	case <-beginConter.C:
@@ -66,8 +61,4 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 			worker.client.action <- worker.Id
 		}
 	}
-}
-
-func (worker *SimpleWorker) StopWorker() {
-	worker.stop <- 1
 }

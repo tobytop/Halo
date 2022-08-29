@@ -2,8 +2,6 @@ package halo
 
 import (
 	"context"
-
-	"github.com/robfig/cron/v3"
 )
 
 type CronWorker struct {
@@ -14,11 +12,11 @@ type CronWorker struct {
 	Cron        string
 	ErrorMode   int
 	JobData     map[string]string
-	c           *cron.Cron
 	ctx         context.Context
+	client      *Client
 }
 
-func NewCronJob(ctx context.Context, job JobContext) *CronWorker {
+func NewCronJob(ctx context.Context, job JobContext, client *Client) *CronWorker {
 	return &CronWorker{
 		Id:          job.Id,
 		Name:        job.Name,
@@ -27,31 +25,14 @@ func NewCronJob(ctx context.Context, job JobContext) *CronWorker {
 		Cron:        job.Cron,
 		ErrorMode:   job.ErrorMode,
 		JobData:     job.JobData,
+		client:      client,
 	}
 }
 
 func (worker *CronWorker) StartWorker(handler JobHandler) {
-	cron := cron.New(cron.WithChain(
-		func() cron.JobWrapper {
-			switch worker.ErrorMode {
-			case 0:
-				return cron.Recover(cron.DefaultLogger)
-			case 1:
-				return cron.DelayIfStillRunning(cron.DefaultLogger)
-			default:
-				return cron.SkipIfStillRunning(cron.DefaultLogger)
-			}
-		}(),
-	))
-	worker.c = cron
-	cron.AddFunc(worker.Cron, func() {
+	worker.client.cron.AddFunc(worker.Cron, func() {
 		if err := handler.Execute(worker.ctx, worker); err != nil {
 			panic(err)
 		}
 	})
-	cron.Start()
-}
-
-func (worker *CronWorker) StopWorker() {
-	<-worker.c.Stop().Done()
 }

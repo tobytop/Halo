@@ -5,13 +5,13 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/go-netty/go-netty"
 	"github.com/go-netty/go-netty/codec/format"
 	"github.com/go-netty/go-netty/codec/frame"
 	"github.com/panjf2000/ants/v2"
+	"github.com/robfig/cron/v3"
 )
 
 type Client struct {
@@ -26,9 +26,24 @@ type Client struct {
 	conn          netty.Channel
 	action        chan string
 	stop          chan byte
+	cron          *cron.Cron
+	cancel        context.CancelFunc
 }
 
-func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler) *Client {
+func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler, cronMode int) *Client {
+	cron := cron.New(cron.WithChain(
+		func() cron.JobWrapper {
+			switch cronMode {
+			case 0:
+				return cron.Recover(cron.DefaultLogger)
+			case 1:
+				return cron.DelayIfStillRunning(cron.DefaultLogger)
+			default:
+				return cron.SkipIfStillRunning(cron.DefaultLogger)
+			}
+		}(),
+	))
+	ctx, cancel := context.WithCancel(ctx)
 	client := &Client{
 		addr:          addr,
 		retryInterval: 120,
@@ -38,6 +53,8 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		ctx:           ctx,
 		action:        make(chan string),
 		stop:          make(chan byte),
+		cron:          cron,
+		cancel:        cancel,
 	}
 	client.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
@@ -71,6 +88,7 @@ func (c *Client) StartServer() {
 	ants.Submit(func() {
 		c.reaction()
 	})
+	c.cron.Start()
 	c.bootstrap = netty.NewBootstrap(netty.WithChildInitializer(c.initFunc))
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
 }
@@ -139,7 +157,7 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 
 	if handler, ok := c.handlers[jobInfo.Type]; ok {
 		if jobInfo.Cron != "" {
-			job = NewCronJob(c.ctx, jobInfo)
+			job = NewCronJob(c.ctx, jobInfo, c)
 		} else {
 			job = NewSimpleWorker(c.ctx, jobInfo, c)
 		}
@@ -151,24 +169,15 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 }
 
 func (c *Client) StopServer() {
-	defer func() {
-		if c.conn != nil {
-			sendMsg := &SendMsg[SendData]{
-				Option: Msg_Stop,
-			}
-			data, _ := json.Marshal(sendMsg)
-			c.conn.Write(data)
-			c.bootstrap.Shutdown()
-			c.stop <- 1
+	c.cancel()
+	c.cron.Stop()
+	if c.conn != nil {
+		sendMsg := &SendMsg[string]{
+			Option: Msg_Stop,
 		}
-	}()
-	var wg sync.WaitGroup
-	for _, job := range c.jobs {
-		wg.Add(1)
-		ants.Submit(func() {
-			job.StopWorker()
-			wg.Wait()
-		})
+		data, _ := json.Marshal(sendMsg)
+		c.conn.Write(data)
+		c.bootstrap.Shutdown()
+		c.stop <- 1
 	}
-	wg.Wait()
 }
