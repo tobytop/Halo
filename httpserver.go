@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,7 +41,7 @@ func NewHttpServer(ctx context.Context, port int, consortor Consortor) *HttpServ
 }
 
 func (h *HttpServer) handlerReq(writer http.ResponseWriter, request *http.Request) {
-	content, _ := ioutil.ReadAll(request.Body)
+	content, _ := io.ReadAll(request.Body)
 	jobContext := new(JobContext)
 	if err := json.Unmarshal(content, jobContext); err == nil {
 		jobid := h.consortor.addJob(jobContext)
