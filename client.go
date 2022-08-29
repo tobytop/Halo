@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/go-netty/go-netty"
@@ -125,7 +126,7 @@ func (c *Client) startNewJob(msg []byte) {
 	}
 }
 
-func (c *Client) StopServer() {
+func (c *Client) StopServer(cancel context.CancelFunc) {
 	defer func() {
 		if c.conn != nil {
 			sendMsg := &SendMsg[SendData]{
@@ -136,9 +137,14 @@ func (c *Client) StopServer() {
 			c.bootstrap.Shutdown()
 		}
 	}()
+	cancel()
+	var wg sync.WaitGroup
 	for _, job := range c.jobs {
+		wg.Add(1)
 		ants.Submit(func() {
 			job.StopWorker()
+			wg.Wait()
 		})
 	}
+	wg.Wait()
 }

@@ -21,6 +21,7 @@ type SimpleWorker struct {
 	RetryInterval int
 	JobData       map[string]string
 	ctx           context.Context
+	stop          chan byte
 }
 
 func NewSimpleWorker(ctx context.Context, job JobContext) *SimpleWorker {
@@ -35,6 +36,7 @@ func NewSimpleWorker(ctx context.Context, job JobContext) *SimpleWorker {
 		RetryInterval: job.RetryInterval,
 		JobData:       job.JobData,
 		ctx:           ctx,
+		stop:          make(chan byte),
 	}
 }
 
@@ -47,6 +49,8 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 	}
 	defer beginConter.Stop()
 	select {
+	case <-worker.stop:
+		return
 	case <-worker.ctx.Done():
 		return
 	case <-beginConter.C:
@@ -61,5 +65,6 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 }
 
 func (worker *SimpleWorker) StopWorker() error {
+	worker.stop <- 1
 	return nil
 }
