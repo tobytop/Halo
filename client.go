@@ -20,7 +20,7 @@ type Client struct {
 	retryInterval int64
 	initFunc      func(channel netty.Channel)
 	handlers      map[string]JobHandler
-	jobs          []Worker
+	jobs          map[string]Worker
 	ctx           context.Context
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
@@ -33,7 +33,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		addr:          addr,
 		retryInterval: 120,
 		retryCount:    3,
-		jobs:          []Worker{},
+		jobs:          make(map[string]Worker),
 		handlers:      handlers(),
 		ctx:           ctx,
 		action:        make(chan string),
@@ -55,6 +55,7 @@ func (c *Client) reaction() {
 			return
 		case data := <-c.action:
 			ants.Submit(func() {
+				delete(c.jobs, data)
 				msg := &SendMsg[string]{
 					Option: Msg_JobStatus,
 					Data:   data,
@@ -143,7 +144,7 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 			job = NewSimpleWorker(c.ctx, jobInfo, c)
 		}
 		job.StartWorker(handler)
-		c.jobs = append(c.jobs, job)
+		c.jobs[jobInfo.Id] = job
 	} else {
 		log.Println("ERROR", "the handler not found")
 	}
