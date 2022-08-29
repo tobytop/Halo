@@ -25,6 +25,7 @@ type Client struct {
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
 	action        chan string
+	stop          chan byte
 }
 
 func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler) *Client {
@@ -36,6 +37,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		handlers:      handlers(),
 		ctx:           ctx,
 		action:        make(chan string),
+		stop:          make(chan byte),
 	}
 	client.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
@@ -48,15 +50,19 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 
 func (c *Client) reaction() {
 	for {
-		data := <-c.action
-		ants.Submit(func() {
-			msg := &SendMsg[string]{
-				Option: Msg_JobStatus,
-				Data:   data,
-			}
-			data, _ := json.Marshal(msg)
-			c.conn.Write(data)
-		})
+		select {
+		case <-c.stop:
+			return
+		case data := <-c.action:
+			ants.Submit(func() {
+				msg := &SendMsg[string]{
+					Option: Msg_JobStatus,
+					Data:   data,
+				}
+				data, _ := json.Marshal(msg)
+				c.conn.Write(data)
+			})
+		}
 	}
 }
 
@@ -152,6 +158,7 @@ func (c *Client) StopServer() {
 			data, _ := json.Marshal(sendMsg)
 			c.conn.Write(data)
 			c.bootstrap.Shutdown()
+			c.stop <- 1
 		}
 	}()
 	var wg sync.WaitGroup
