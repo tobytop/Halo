@@ -143,7 +143,7 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 	}
 }
 
-func (c *Client) StopServer(cancel context.CancelFunc) {
+func (c *Client) StopServer() {
 	defer func() {
 		if c.conn != nil {
 			sendMsg := &SendMsg[SendData]{
@@ -154,7 +154,6 @@ func (c *Client) StopServer(cancel context.CancelFunc) {
 			c.bootstrap.Shutdown()
 		}
 	}()
-	cancel()
 	var wg sync.WaitGroup
 	for _, job := range c.jobs {
 		wg.Add(1)
