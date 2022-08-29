@@ -7,7 +7,7 @@ import (
 
 type Worker interface {
 	StartWorker(handler JobHandler)
-	StopWorker() error
+	StopWorker()
 }
 
 type SimpleWorker struct {
@@ -22,9 +22,10 @@ type SimpleWorker struct {
 	JobData       map[string]string
 	ctx           context.Context
 	stop          chan byte
+	client        *Client
 }
 
-func NewSimpleWorker(ctx context.Context, job JobContext) *SimpleWorker {
+func NewSimpleWorker(ctx context.Context, job JobContext, client *Client) *SimpleWorker {
 	return &SimpleWorker{
 		Id:            job.Id,
 		Name:          job.Name,
@@ -37,6 +38,7 @@ func NewSimpleWorker(ctx context.Context, job JobContext) *SimpleWorker {
 		JobData:       job.JobData,
 		ctx:           ctx,
 		stop:          make(chan byte),
+		client:        client,
 	}
 }
 
@@ -60,11 +62,12 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 				worker.RetryCount--
 				worker.StartWorker(handler)
 			}
+		} else {
+			worker.client.action <- worker.Id
 		}
 	}
 }
 
-func (worker *SimpleWorker) StopWorker() error {
+func (worker *SimpleWorker) StopWorker() {
 	worker.stop <- 1
-	return nil
 }

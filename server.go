@@ -114,6 +114,9 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 				Types:   data,
 			}
 		}
+	case Msg_JobStatus:
+		data := sendMsg.Data.(string)
+		center.consortor.finishJob(data)
 	case Msg_Stop:
 		center.mu.Lock()
 		defer center.mu.Unlock()
@@ -157,7 +160,11 @@ func (center *Server) reaction() {
 			switch msg.msgType {
 			case sendJob:
 				ants.Submit(func() {
-					if jsonString, err := json.Marshal(msg.job); err == nil {
+					sendmsg := &SendMsg[JobContext]{
+						Option: Msg_Get,
+						Data:   msg.job,
+					}
+					if jsonString, err := json.Marshal(sendmsg); err == nil {
 						center.connects[msg.addr].channel.Write(jsonString)
 					} else {
 						log.Print(err)

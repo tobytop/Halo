@@ -38,9 +38,10 @@ type ResultData[T interface{}] struct {
 }
 
 var (
-	Msg_Server  = "!Msg_Server"
-	Msg_Job     = "!Msg_job"
-	Msg_Hunting = "!Msg_Hunting"
-	Msg_Get     = "!Msg_get"
-	Msg_Stop    = "!Msg_Stop"
+	Msg_Server    = "!Msg_Server"
+	Msg_Job       = "!Msg_job"
+	Msg_JobStatus = "!Msg_JobStatus"
+	Msg_Hunting   = "!Msg_Hunting"
+	Msg_Get       = "!Msg_get"
+	Msg_Stop      = "!Msg_Stop"
 )

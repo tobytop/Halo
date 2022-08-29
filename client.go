@@ -24,6 +24,7 @@ type Client struct {
 	ctx           context.Context
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
+	action        chan string
 }
 
 func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler) *Client {
@@ -34,6 +35,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		jobs:          []Worker{},
 		handlers:      handlers(),
 		ctx:           ctx,
+		action:        make(chan string),
 	}
 	client.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
@@ -44,7 +46,24 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 	return client
 }
 
+func (c *Client) reaction() {
+	for {
+		data := <-c.action
+		ants.Submit(func() {
+			msg := &SendMsg[string]{
+				Option: Msg_JobStatus,
+				Data:   data,
+			}
+			data, _ := json.Marshal(msg)
+			c.conn.Write(data)
+		})
+	}
+}
+
 func (c *Client) StartServer() {
+	ants.Submit(func() {
+		c.reaction()
+	})
 	c.bootstrap = netty.NewBootstrap(netty.WithChildInitializer(c.initFunc))
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
 }
@@ -67,12 +86,13 @@ func (c *Client) HandleActive(ctx netty.ActiveContext) {
 func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 	msg := message.(string)
 	data := []byte(msg)
-	sendMsg := new(SendMsg[SendData])
+	sendMsg := new(SendMsg[interface{}])
 	if err := json.Unmarshal(data, sendMsg); err == nil {
 		switch sendMsg.Option {
 		case Msg_Job:
+			formData := sendMsg.Data.(SendData)
 			ants.Submit(func() {
-				if _, ok := c.handlers[sendMsg.Data.Handler]; ok {
+				if _, ok := c.handlers[formData.Handler]; ok {
 					sendMsg.Option = Msg_Hunting
 					data, _ := json.Marshal(sendMsg)
 					ctx.Write(data)
@@ -80,8 +100,9 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 				}
 			})
 		case Msg_Get:
+			formData := sendMsg.Data.(JobContext)
 			ants.Submit(func() {
-				c.startNewJob(data)
+				c.startNewJob(formData)
 			})
 		}
 	}
@@ -106,18 +127,14 @@ func (c *Client) reconnect(count int) {
 	}
 }
 
-func (c *Client) startNewJob(msg []byte) {
-	jobInfo := JobContext{}
-	if errjson := json.Unmarshal(msg, &jobInfo); errjson != nil {
-		log.Println("ERROR", errjson)
-	}
+func (c *Client) startNewJob(jobInfo JobContext) {
 	var job Worker
 
 	if handler, ok := c.handlers[jobInfo.Type]; ok {
 		if jobInfo.Cron != "" {
 			job = NewCronJob(c.ctx, jobInfo)
 		} else {
-			job = NewSimpleWorker(c.ctx, jobInfo)
+			job = NewSimpleWorker(c.ctx, jobInfo, c)
 		}
 		job.StartWorker(handler)
 		c.jobs = append(c.jobs, job)
