@@ -141,7 +141,7 @@ func (consortor *DefaultConsortor) removeServerJob(addr string) {
 	for _, p := range pairs {
 		data := string(p.Value)
 		if data == addr {
-			jobid := p.Key[len(JOBSERVER_PREFIX)-1:]
+			jobid := p.Key[len(JOBSERVER_PREFIX):]
 			pv, _, _ := kv.Get(JOBSTATUS_PREFIX+jobid, nil)
 			status, _ := strconv.Atoi(string(pv.Value))
 			if status == RUNING {
