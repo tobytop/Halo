@@ -1,7 +1,6 @@
 package halo
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,14 +16,14 @@ type HttpServer struct {
 	consortor Consortor
 	port      string
 	initFunc  func(channel netty.Channel)
-	ctx       context.Context
+	server    *Server
 }
 
-func NewHttpServer(ctx context.Context, port int, consortor Consortor) *HttpServer {
+func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer {
 	server := &HttpServer{
 		consortor: consortor,
 		port:      strconv.Itoa(port),
-		ctx:       ctx,
+		server:    tcpserver,
 	}
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/addjob", server.handlerAddjob)
@@ -68,6 +67,12 @@ func (h *HttpServer) handlerListjob(writer http.ResponseWriter, request *http.Re
 
 func (h *HttpServer) handlerDeletejob(writer http.ResponseWriter, request *http.Request) {
 	jobid := request.URL.Query().Get("jobid")
+	msg := &controlMsg{
+		msgType: deleteJob,
+		jobId:   jobid,
+		addr:    h.consortor.findAddrByjobId(jobid),
+	}
+	h.server.controlMsg <- msg
 	if err := h.consortor.deleteJob(jobid); err != nil {
 		writer.Write([]byte(err.Error()))
 	} else {

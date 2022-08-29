@@ -39,6 +39,7 @@ const (
 	lostClient = "LostClient"
 	sendJob    = "SendJob"
 	publishJob = "PublishJob"
+	deleteJob  = "DeleteJob"
 )
 
 type serverInfo struct {
@@ -175,6 +176,18 @@ func (center *Server) reaction() {
 			case lostClient:
 				ants.Submit(func() {
 					center.deleteServer(msg.addr, center.retryCount+1)
+				})
+			case deleteJob:
+				ants.Submit(func() {
+					sendmsg := &SendMsg[string]{
+						Option: Msg_Get,
+						Data:   msg.jobId,
+					}
+					if jsonString, err := json.Marshal(sendmsg); err == nil {
+						center.connects[msg.addr].channel.Write(jsonString)
+					} else {
+						log.Print(err)
+					}
 				})
 			}
 		}

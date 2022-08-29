@@ -44,4 +44,5 @@ var (
 	Msg_Hunting   = "!Msg_Hunting"
 	Msg_Get       = "!Msg_get"
 	Msg_Stop      = "!Msg_Stop"
+	Msg_Delete    = "!Msg_Delete"
 )

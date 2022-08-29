@@ -21,6 +21,7 @@ type SimpleWorker struct {
 	JobData       map[string]string
 	ctx           context.Context
 	client        *Client
+	stop          chan byte
 }
 
 func NewSimpleWorker(ctx context.Context, job JobContext, client *Client) *SimpleWorker {
@@ -36,6 +37,7 @@ func NewSimpleWorker(ctx context.Context, job JobContext, client *Client) *Simpl
 		JobData:       job.JobData,
 		ctx:           ctx,
 		client:        client,
+		stop:          make(chan byte),
 	}
 }
 
@@ -48,6 +50,8 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 	}
 	defer beginConter.Stop()
 	select {
+	case <-worker.stop:
+		return
 	case <-worker.ctx.Done():
 		return
 	case <-beginConter.C:

@@ -18,6 +18,7 @@ type Consortor interface {
 	removeServerJob(addr string)
 	listJob() []JobContext
 	deleteJob(jobid string) error
+	findAddrByjobId(jobid string) string
 }
 
 const (
@@ -133,6 +134,13 @@ func (consortor *DefaultConsortor) finishJob(jobid string) {
 		Key:   JOBSTATUS_PREFIX + "/" + jobid,
 		Value: []byte(strconv.Itoa(FINISH)),
 	}, nil)
+}
+
+func (consortor *DefaultConsortor) findAddrByjobId(jobid string) string {
+	kv := consortor.client.KV()
+	jobkey := JOBSERVER_PREFIX + "/" + jobid
+	pair, _, _ := kv.Get(jobkey, nil)
+	return string(pair.Value)
 }
 
 func (consortor *DefaultConsortor) listJob() []JobContext {

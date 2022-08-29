@@ -20,7 +20,7 @@ type Client struct {
 	retryInterval int64
 	initFunc      func(channel netty.Channel)
 	handlers      map[string]JobHandler
-	jobs          map[string]Worker
+	jobs          map[string]interface{}
 	ctx           context.Context
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
@@ -48,7 +48,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		addr:          addr,
 		retryInterval: 120,
 		retryCount:    3,
-		jobs:          make(map[string]Worker),
+		jobs:          make(map[string]interface{}),
 		handlers:      handlers(),
 		ctx:           ctx,
 		action:        make(chan string),
@@ -115,9 +115,9 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 	if err := json.Unmarshal(data, sendMsg); err == nil {
 		switch sendMsg.Option {
 		case Msg_Job:
-			formData := sendMsg.Data.(SendData)
+			msgData := sendMsg.Data.(SendData)
 			ants.Submit(func() {
-				if _, ok := c.handlers[formData.Handler]; ok {
+				if _, ok := c.handlers[msgData.Handler]; ok {
 					sendMsg.Option = Msg_Hunting
 					data, _ := json.Marshal(sendMsg)
 					ctx.Write(data)
@@ -125,10 +125,19 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 				}
 			})
 		case Msg_Get:
-			formData := sendMsg.Data.(JobContext)
+			msgData := sendMsg.Data.(JobContext)
 			ants.Submit(func() {
-				c.startNewJob(formData)
+				c.startNewJob(msgData)
 			})
+		case Msg_Delete:
+			msgData := sendMsg.Data.(string)
+			switch cron := c.jobs[msgData].(type) {
+			case CronWorker:
+				c.cron.Remove(cron.cronId)
+			case SimpleWorker:
+				cron.stop <- 1
+			}
+			delete(c.jobs, msgData)
 		}
 	}
 }
@@ -153,16 +162,13 @@ func (c *Client) reconnect(count int) {
 }
 
 func (c *Client) startNewJob(jobInfo JobContext) {
-	var job Worker
-
 	if handler, ok := c.handlers[jobInfo.Type]; ok {
 		if jobInfo.Cron != "" {
-			job = NewCronJob(c.ctx, jobInfo, c)
+			c.jobs[jobInfo.Id] = NewCronJob(c.ctx, jobInfo, c)
 		} else {
-			job = NewSimpleWorker(c.ctx, jobInfo, c)
+			c.jobs[jobInfo.Id] = NewSimpleWorker(c.ctx, jobInfo, c)
 		}
-		job.StartWorker(handler)
-		c.jobs[jobInfo.Id] = job
+		c.jobs[jobInfo.Id].(Worker).StartWorker(handler)
 	} else {
 		log.Println("ERROR", "the handler not found")
 	}
