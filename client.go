@@ -185,6 +185,6 @@ func (c *Client) StopServer() {
 		data, _ := json.Marshal(sendMsg)
 		c.conn.Write(string(data))
 		c.bootstrap.Shutdown()
-		c.stop <- 1
 	}
+	c.stop <- 1
 }
