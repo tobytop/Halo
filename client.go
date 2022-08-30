@@ -145,6 +145,7 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 
 func (c *Client) HandleInactive(ctx netty.InactiveContext, ex netty.Exception) {
 	c.reconnect(c.retryCount + 1)
+	ctx.HandleInactive(ex)
 }
 
 func (c *Client) reconnect(count int) {
