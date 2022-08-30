@@ -100,7 +100,7 @@ func (h *HttpServer) handlerAllTaskHandler(writer http.ResponseWriter, request *
 		}
 	}
 	allhandlers := []string{}
-	for key, _ := range handlers {
+	for key := range handlers {
 		allhandlers = append(allhandlers, key)
 	}
 	reuslt := &ResultData[[]string]{

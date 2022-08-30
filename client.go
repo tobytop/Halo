@@ -96,7 +96,7 @@ func (c *Client) StartServer() {
 
 func (c *Client) HandleActive(ctx netty.ActiveContext) {
 	handlers := []string{}
-	for key, _ := range c.handlers {
+	for key := range c.handlers {
 		handlers = append(handlers, key)
 	}
 	msg := &SendMsg[[]string]{
