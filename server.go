@@ -168,7 +168,7 @@ func (center *Server) reaction() {
 						Data:   msg.job,
 					}
 					if jsonString, err := json.Marshal(sendmsg); err == nil {
-						center.connects[msg.addr].channel.Write(jsonString)
+						center.connects[msg.addr].channel.Write(string(jsonString))
 					} else {
 						log.Print(err)
 					}
@@ -186,7 +186,7 @@ func (center *Server) reaction() {
 						Data:   msg.jobId,
 					}
 					if jsonString, err := json.Marshal(sendmsg); err == nil {
-						center.connects[msg.addr].channel.Write(jsonString)
+						center.connects[msg.addr].channel.Write(string(jsonString))
 					} else {
 						log.Print(err)
 					}
@@ -223,7 +223,7 @@ func (center *Server) publishJob(handler, jobId string) {
 				},
 			}
 			if data, err := json.Marshal(msg); err == nil {
-				if ok := conn.channel.Write(data); !ok {
+				if ok := conn.channel.Write(string(data)); !ok {
 					log.Print("err")
 				}
 			}

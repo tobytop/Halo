@@ -78,7 +78,7 @@ func (c *Client) reaction() {
 					Data:   data,
 				}
 				data, _ := json.Marshal(msg)
-				c.conn.Write(data)
+				c.conn.Write(string(data))
 			})
 		}
 	}
@@ -105,7 +105,6 @@ func (c *Client) HandleActive(ctx netty.ActiveContext) {
 	}
 
 	data, _ := json.Marshal(msg)
-	log.Print(string(data))
 	ctx.Write(string(data))
 	ctx.HandleActive()
 }
@@ -122,7 +121,7 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 				if _, ok := c.handlers[msgData.Handler]; ok {
 					sendMsg.Option = Msg_Hunting
 					data, _ := json.Marshal(sendMsg)
-					ctx.Write(data)
+					ctx.Write(string(data))
 					ctx.HandleRead(message)
 				}
 			})
@@ -184,7 +183,7 @@ func (c *Client) StopServer() {
 			Option: Msg_Stop,
 		}
 		data, _ := json.Marshal(sendMsg)
-		c.conn.Write(data)
+		c.conn.Write(string(data))
 		c.bootstrap.Shutdown()
 		c.stop <- 1
 	}
