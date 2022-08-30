@@ -58,7 +58,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 	}
 	client.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
-			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024, 0, 2, 0, 2)).
+			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024*10, 0, 2, 0, 2)).
 			AddLast(format.TextCodec()).
 			AddLast(client)
 	}
@@ -89,8 +89,9 @@ func (c *Client) StartServer() {
 		c.reaction()
 	})
 	c.cron.Start()
-	c.bootstrap = netty.NewBootstrap(netty.WithChildInitializer(c.initFunc))
+	c.bootstrap = netty.NewBootstrap(netty.WithClientInitializer(c.initFunc))
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
+	<-c.stop
 }
 
 func (c *Client) HandleActive(ctx netty.ActiveContext) {
@@ -104,7 +105,8 @@ func (c *Client) HandleActive(ctx netty.ActiveContext) {
 	}
 
 	data, _ := json.Marshal(msg)
-	ctx.Write(data)
+	log.Print(string(data))
+	ctx.Write(string(data))
 	ctx.HandleActive()
 }
 

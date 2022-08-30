@@ -26,6 +26,7 @@ func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer
 		server:    tcpserver,
 	}
 	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/gettaskhandler", server.handlerAllTaskHandler)
 	httpMux.HandleFunc("/addjob", server.handlerAddjob)
 	httpMux.HandleFunc("/listjob", server.handlerListjob)
 	httpMux.HandleFunc("/deletejob", server.handlerDeletejob)
@@ -39,6 +40,10 @@ func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer
 			AddLast(xhttp.Handler(httpMux))
 	}
 	return server
+}
+
+func (h *HttpServer) StartServer() error {
+	return netty.NewBootstrap(netty.WithChildInitializer(h.initFunc)).Listen(":" + h.port).Sync()
 }
 
 func (h *HttpServer) handlerAddjob(writer http.ResponseWriter, request *http.Request) {
@@ -83,6 +88,27 @@ func (h *HttpServer) handlerDeletejob(writer http.ResponseWriter, request *http.
 		data, _ := json.Marshal(reuslt)
 		writer.Write(data)
 	}
+}
+
+func (h *HttpServer) handlerAllTaskHandler(writer http.ResponseWriter, request *http.Request) {
+	handlers := make(map[string]bool)
+	for _, client := range h.server.connects {
+		if client.status == ACTIVE {
+			for _, handler := range client.Types {
+				handlers[handler] = true
+			}
+		}
+	}
+	allhandlers := []string{}
+	for key, _ := range handlers {
+		allhandlers = append(allhandlers, key)
+	}
+	reuslt := &ResultData[[]string]{
+		Message: "Sccuess",
+		Data:    allhandlers,
+	}
+	data, _ := json.Marshal(reuslt)
+	writer.Write(data)
 }
 
 func (h *HttpServer) HandleActive(ctx netty.ActiveContext) {

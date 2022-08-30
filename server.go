@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"sync"
@@ -55,11 +54,8 @@ const (
 )
 
 func NewServer(ctx context.Context, port int, consortor Consortor) *Server {
-	flag.IntVar(&port, "port", 9010, "--port 9010")
-	flag.Parse()
-
 	server := &Server{
-		port:          fmt.Sprintf("%d", port),
+		port:          fmt.Sprintf(":%d", port),
 		consortor:     consortor,
 		connects:      make(map[string]*serverInfo),
 		controlMsg:    make(chan *controlMsg),
@@ -69,10 +65,11 @@ func NewServer(ctx context.Context, port int, consortor Consortor) *Server {
 	}
 	server.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
-			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024, 0, 2, 0, 2)).
+			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024*10, 0, 2, 0, 2)).
 			AddLast(format.TextCodec()).
 			AddLast(server)
 	}
+
 	consortor.setServer(server)
 	return server
 }
@@ -104,17 +101,22 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 	case Msg_Server:
 		center.mu.Lock()
 		defer center.mu.Unlock()
-		data := sendMsg.Data.([]string)
+		data := sendMsg.Data.([]interface{})
+		handlers := make([]string, len(data))
+		for i, value := range data {
+			handlers[i] = value.(string)
+		}
 		if value, ok := center.connects[addr]; ok {
 			value.status = ACTIVE
-			value.Types = data
+			value.Types = handlers
 		} else {
 			center.connects[addr] = &serverInfo{
 				channel: ctx.Channel(),
 				status:  ACTIVE,
-				Types:   data,
+				Types:   handlers,
 			}
 		}
+		log.Print(center.connects[addr])
 	case Msg_JobStatus:
 		data := sendMsg.Data.(string)
 		center.consortor.finishJob(data)
@@ -123,6 +125,7 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 		defer center.mu.Unlock()
 		center.connects[addr].status = STOP
 	}
+	ctx.HandleRead(message)
 }
 
 func (center *Server) HandleInactive(ctx netty.InactiveContext, ex netty.Exception) {
@@ -147,9 +150,8 @@ func (center *Server) StartServer() error {
 	ants.Submit(func() {
 		center.reaction()
 	})
-	log.Print(center.port)
 
-	return netty.NewBootstrap(netty.WithChildInitializer(center.initFunc)).Listen(":" + center.port).Sync()
+	return netty.NewBootstrap(netty.WithChildInitializer(center.initFunc)).Listen(center.port).Sync()
 }
 
 func (center *Server) reaction() {
