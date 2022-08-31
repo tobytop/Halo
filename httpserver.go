@@ -2,20 +2,15 @@ package halo
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"time"
-
-	"github.com/go-netty/go-netty"
-	"github.com/go-netty/go-netty/codec/xhttp"
 )
 
 type HttpServer struct {
 	consortor Consortor
 	port      string
-	initFunc  func(channel netty.Channel)
+	router    *http.ServeMux
 	server    *Server
 }
 
@@ -30,20 +25,12 @@ func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer
 	httpMux.HandleFunc("/addjob", server.handlerAddjob)
 	httpMux.HandleFunc("/listjob", server.handlerListjob)
 	httpMux.HandleFunc("/deletejob", server.handlerDeletejob)
-	server.initFunc = func(channel netty.Channel) {
-		channel.Pipeline().
-			// decode http request from channel
-			AddLast(xhttp.ServerCodec()).
-			// print http access log
-			AddLast(server).
-			// compatible with http.Handler
-			AddLast(xhttp.Handler(httpMux))
-	}
+	server.router = httpMux
 	return server
 }
 
-func (h *HttpServer) StartServer() error {
-	return netty.NewBootstrap(netty.WithChildInitializer(h.initFunc)).Listen(":" + h.port).Sync()
+func (h *HttpServer) StartServer() {
+	http.ListenAndServe(":"+h.port, h.router)
 }
 
 func (h *HttpServer) handlerAddjob(writer http.ResponseWriter, request *http.Request) {
@@ -109,26 +96,4 @@ func (h *HttpServer) handlerAllTaskHandler(writer http.ResponseWriter, request *
 	}
 	data, _ := json.Marshal(reuslt)
 	writer.Write(data)
-}
-
-func (h *HttpServer) HandleActive(ctx netty.ActiveContext) {
-	ctx.HandleActive()
-}
-
-func (h *HttpServer) HandleRead(ctx netty.InboundContext, message netty.Message) {
-	if request, ok := message.(*http.Request); ok {
-		fmt.Printf("[%d]%s: %s %s\n", ctx.Channel().ID(), ctx.Channel().RemoteAddr(), request.Method, request.URL.Path)
-	}
-	ctx.HandleRead(message)
-}
-
-func (h *HttpServer) HandleWrite(ctx netty.OutboundContext, message netty.Message) {
-	if responseWriter, ok := message.(http.ResponseWriter); ok {
-		responseWriter.Header().Add("x-time", time.Now().String())
-	}
-	ctx.HandleWrite(message)
-}
-
-func (h *HttpServer) HandleInactive(ctx netty.InactiveContext, ex netty.Exception) {
-	ctx.HandleInactive(ex)
 }

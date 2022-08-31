@@ -10,7 +10,8 @@ func main() {
 	defer cancel()
 	consortor, _ := halo.NewConsortor("")
 	server := halo.NewServer(ctx, 8000, consortor)
+	httpserver := halo.NewHttpServer(8081, consortor, server)
+
+	go httpserver.StartServer()
 	server.StartServer()
-	httpserver := halo.NewHttpServer(8080, consortor, server)
-	httpserver.StartServer()
 }
