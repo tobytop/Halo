@@ -25,7 +25,6 @@ type Client struct {
 	bootstrap     netty.Bootstrap
 	conn          netty.Channel
 	action        chan string
-	stop          chan byte
 	cron          *cron.Cron
 	cancel        context.CancelFunc
 }
@@ -52,7 +51,6 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 		handlers:      handlers(),
 		ctx:           ctx,
 		action:        make(chan string),
-		stop:          make(chan byte),
 		cron:          cron,
 		cancel:        cancel,
 	}
@@ -68,7 +66,7 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 func (c *Client) reaction() {
 	for {
 		select {
-		case <-c.stop:
+		case <-c.ctx.Done():
 			return
 		case data := <-c.action:
 			ants.Submit(func() {
@@ -91,7 +89,7 @@ func (c *Client) StartServer() {
 	c.cron.Start()
 	c.bootstrap = netty.NewBootstrap(netty.WithClientInitializer(c.initFunc))
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
-	<-c.stop
+	<-c.conn.Context().Done()
 }
 
 func (c *Client) HandleActive(ctx netty.ActiveContext) {
@@ -132,11 +130,11 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 			})
 		case Msg_Delete:
 			msgData := sendMsg.Data.(string)
-			switch cron := c.jobs[msgData].(type) {
+			switch worker := c.jobs[msgData].(type) {
 			case CronWorker:
-				c.cron.Remove(cron.cronId)
+				c.cron.Remove(worker.cronId)
 			case SimpleWorker:
-				cron.stop <- 1
+				worker.stop <- 1
 			}
 			delete(c.jobs, msgData)
 		}
@@ -177,7 +175,6 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 }
 
 func (c *Client) StopServer() {
-	c.cancel()
 	c.cron.Stop()
 	if c.conn != nil {
 		sendMsg := &SendMsg[string]{
@@ -187,5 +184,5 @@ func (c *Client) StopServer() {
 		c.conn.Write(string(data))
 		c.bootstrap.Shutdown()
 	}
-	c.stop <- 1
+	c.cancel()
 }

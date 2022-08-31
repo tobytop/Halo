@@ -37,7 +37,7 @@ func NewSimpleWorker(ctx context.Context, job JobContext, client *Client) *Simpl
 		JobData:       job.JobData,
 		ctx:           ctx,
 		client:        client,
-		stop:          make(chan byte),
+		stop:          make(chan byte, 1),
 	}
 }
 
