@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"halo"
 	"log"
+	"os"
 )
 
 func main() {
+	inputReader := bufio.NewReader(os.Stdin)
 	client := halo.NewClient(context.Background(), "127.0.0.1:8000", func() map[string]halo.JobHandler {
 		handlers := make(map[string]halo.JobHandler)
 		handlers["test"] = &TestTask{
@@ -15,7 +18,13 @@ func main() {
 		return handlers
 	}, 1)
 	defer client.StopServer()
-	client.StartServer()
+	go client.StartServer()
+	for {
+		input, _ := inputReader.ReadString('\n')
+		if input[:len(input)-2] == "exit" {
+			os.Exit(0)
+		}
+	}
 }
 
 type TestTask struct {
