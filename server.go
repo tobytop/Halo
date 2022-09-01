@@ -86,6 +86,7 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 		return
 	}
 	addr := ctx.Channel().RemoteAddr()
+	log.Print("server in addr " + addr)
 	switch sendMsg.Option {
 	case Msg_Hunting:
 		data := sendMsg.Data.(SendData)
@@ -116,7 +117,6 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 				Types:   handlers,
 			}
 		}
-		log.Print(center.connects[addr])
 	case Msg_JobStatus:
 		data := sendMsg.Data.(string)
 		center.consortor.finishJob(data)
@@ -142,16 +142,23 @@ func (center *Server) HandleInactive(ctx netty.InactiveContext, ex netty.Excepti
 	defer center.mu.Unlock()
 	center.connects[addr].status = PENDING
 	center.controlMsg <- msg
-	fmt.Println("go-netty:", "->", "inactive:", ctx.Channel().RemoteAddr(), ex)
+	fmt.Println("halo:", "->", "inactive:", ctx.Channel().RemoteAddr(), ex)
 	ctx.HandleInactive(ex)
 }
 
-func (center *Server) StartServer() error {
+func (center *Server) StartServer() *Server {
 	ants.Submit(func() {
 		center.reaction()
 	})
 
-	return netty.NewBootstrap(netty.WithChildInitializer(center.initFunc)).Listen(center.port).Sync()
+	if err := netty.NewBootstrap(netty.WithChildInitializer(center.initFunc)).Listen(center.port).Sync(); err != nil {
+		panic(err)
+	}
+	return center
+}
+
+func (center *Server) BuilderHttpService(port int) *HttpServer {
+	return NewHttpServer(port, center)
 }
 
 func (center *Server) reaction() {

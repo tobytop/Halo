@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/panjf2000/ants/v2"
 )
 
 type HttpServer struct {
@@ -14,9 +16,9 @@ type HttpServer struct {
 	server    *Server
 }
 
-func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer {
+func NewHttpServer(port int, tcpserver *Server) *HttpServer {
 	server := &HttpServer{
-		consortor: consortor,
+		consortor: tcpserver.consortor,
 		port:      strconv.Itoa(port),
 		server:    tcpserver,
 	}
@@ -31,6 +33,13 @@ func NewHttpServer(port int, consortor Consortor, tcpserver *Server) *HttpServer
 
 func (h *HttpServer) StartServer() {
 	http.ListenAndServe(":"+h.port, h.router)
+}
+
+func (h *HttpServer) StartAllServer() {
+	ants.Submit(func() {
+		h.StartServer()
+	})
+	h.server.StartServer()
 }
 
 func (h *HttpServer) handlerAddjob(writer http.ResponseWriter, request *http.Request) {

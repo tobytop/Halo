@@ -1,10 +1,13 @@
 package halo
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/go-netty/go-netty"
@@ -27,6 +30,10 @@ type Client struct {
 	action        chan string
 	cron          *cron.Cron
 	cancel        context.CancelFunc
+}
+
+func NewDefaultClient(addr string, handlers func() map[string]JobHandler) *Client {
+	return NewClient(context.Background(), addr, handlers, 1)
 }
 
 func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler, cronMode int) *Client {
@@ -89,7 +96,18 @@ func (c *Client) StartServer() {
 	c.cron.Start()
 	c.bootstrap = netty.NewBootstrap(netty.WithClientInitializer(c.initFunc))
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
-	<-c.conn.Context().Done()
+	in := bufio.NewReader(os.Stdin)
+	out := bufio.NewWriter(os.Stdout)
+	fmt.Fprintln(out, "The connection has been started and you can exit via exit")
+	out.Flush()
+	defer c.StopServer()
+	for {
+		input, _ := in.ReadString('\n')
+		if input[:len(input)-2] == "exit" {
+			c.StopServer()
+			os.Exit(0)
+		}
+	}
 }
 
 func (c *Client) HandleActive(ctx netty.ActiveContext) {
