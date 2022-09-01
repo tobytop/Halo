@@ -22,7 +22,7 @@ type JobHandler interface {
 	Execute(ctx context.Context, worker interface{}) error
 }
 
-type SendMsg[T interface{}] struct {
+type SendMsg[T any] struct {
 	Option string `json:"option"`
 	Data   T      `json:"data"`
 }
@@ -32,7 +32,7 @@ type SendData struct {
 	Handler string `json:"handler"`
 }
 
-type ResultData[T interface{}] struct {
+type ResultData[T any] struct {
 	Message string `json:"message"`
 	Data    T      `json:"data"`
 }

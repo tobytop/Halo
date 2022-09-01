@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/api"
+	"github.com/hashicorp/go-cleanhttp"
 )
 
 type Consortor interface {
@@ -42,7 +43,12 @@ type DefaultConsortor struct {
 }
 
 func NewConsortor(host string) (*DefaultConsortor, error) {
-	client, err := api.NewClient(api.DefaultConfig())
+	config := &api.Config{
+		Address:   host,
+		Scheme:    "http",
+		Transport: cleanhttp.DefaultPooledTransport(),
+	}
+	client, err := api.NewClient(config)
 	return &DefaultConsortor{
 		client: client,
 	}, err
