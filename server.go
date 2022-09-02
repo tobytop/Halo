@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -82,11 +81,11 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 	msg := message.(string)
 	sendMsg := new(SendMsg[interface{}])
 	if err := json.Unmarshal([]byte(msg), sendMsg); err != nil {
-		log.Print("err json" + msg)
+		fmt.Println("halo:", "->", "readerr:", ctx.Channel().RemoteAddr(), err)
 		return
 	}
 	addr := ctx.Channel().RemoteAddr()
-	log.Print("server in addr " + addr)
+	fmt.Println("halo:", "->", "message:", ctx.Channel().RemoteAddr(), sendMsg)
 	switch sendMsg.Option {
 	case Msg_Hunting:
 		data := sendMsg.Data.(SendData)
@@ -146,6 +145,10 @@ func (center *Server) HandleInactive(ctx netty.InactiveContext, ex netty.Excepti
 	ctx.HandleInactive(ex)
 }
 
+func (center *Server) HandleException(ctx netty.ExceptionContext, ex netty.Exception) {
+	fmt.Println("halo:", "->", "tcperr:", ctx.Channel().RemoteAddr(), ex)
+}
+
 func (center *Server) StartServer() *Server {
 	ants.Submit(func() {
 		center.reaction()
@@ -177,7 +180,7 @@ func (center *Server) reaction() {
 					if jsonString, err := json.Marshal(sendmsg); err == nil {
 						center.connects[msg.addr].channel.Write(string(jsonString))
 					} else {
-						log.Print(err)
+						fmt.Println("halo:", "->", "reaction:", sendJob, err)
 					}
 				})
 			case publishJob:
@@ -195,7 +198,7 @@ func (center *Server) reaction() {
 					if jsonString, err := json.Marshal(sendmsg); err == nil {
 						center.connects[msg.addr].channel.Write(string(jsonString))
 					} else {
-						log.Print(err)
+						fmt.Println("halo:", "->", "reaction:", deleteJob, err)
 					}
 				})
 			}
@@ -231,7 +234,7 @@ func (center *Server) publishJob(handler, jobId string) {
 			}
 			if data, err := json.Marshal(msg); err == nil {
 				if ok := conn.channel.Write(string(data)); !ok {
-					log.Print("err")
+					fmt.Println("halo:", "->", "publish:err")
 				}
 			}
 		})

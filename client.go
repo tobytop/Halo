@@ -98,7 +98,7 @@ func (c *Client) StartServer() {
 	c.conn, _ = c.bootstrap.Connect(c.addr, nil)
 	in := bufio.NewReader(os.Stdin)
 	out := bufio.NewWriter(os.Stdout)
-	fmt.Fprintln(out, "The connection has been started and you can exit via exit")
+	fmt.Fprintln(out, "The connection has been started and you can exit via command exit")
 	out.Flush()
 	defer c.StopServer()
 	for {
