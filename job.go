@@ -31,6 +31,10 @@ type SendData struct {
 	JobId   string `json:"jobid"`
 	Handler string `json:"handler"`
 }
+type ServerInfo struct {
+	Weight   int      `json:"weight"`
+	Handlers []string `json:"handlers"`
+}
 
 type ResultData[T any] struct {
 	Message string `json:"message"`

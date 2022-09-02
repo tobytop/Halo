@@ -44,6 +44,7 @@ type serverInfo struct {
 	channel netty.Channel
 	Types   []string
 	status  int
+	weight  int
 }
 
 const (
@@ -99,13 +100,25 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 			center.controlMsg <- msg
 		}
 	case Msg_Server:
+		data := sendMsg.Data.(map[string]interface{})
+		var (
+			handlers []string
+			weight   int
+		)
+		for key, value := range data {
+			switch key {
+			case "weight":
+				weight = int(value.(float64))
+			case "Handlers":
+				serverHandlers := value.([]interface{})
+				handlers := make([]string, len(serverHandlers))
+				for i, value := range serverHandlers {
+					handlers[i] = value.(string)
+				}
+			}
+		}
 		center.mu.Lock()
 		defer center.mu.Unlock()
-		data := sendMsg.Data.([]interface{})
-		handlers := make([]string, len(data))
-		for i, value := range data {
-			handlers[i] = value.(string)
-		}
 		if value, ok := center.connects[addr]; ok {
 			value.status = ACTIVE
 			value.Types = handlers
@@ -114,6 +127,7 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 				channel: ctx.Channel(),
 				status:  ACTIVE,
 				Types:   handlers,
+				weight:  weight,
 			}
 		}
 	case Msg_JobStatus:

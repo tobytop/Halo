@@ -119,9 +119,12 @@ func (c *Client) HandleActive(ctx netty.ActiveContext) {
 	for key := range c.handlers {
 		handlers = append(handlers, key)
 	}
-	msg := &SendMsg[[]string]{
+	msg := &SendMsg[ServerInfo]{
 		Option: Msg_Server,
-		Data:   handlers,
+		Data: ServerInfo{
+			Weight:   c.weight,
+			Handlers: handlers,
+		},
 	}
 
 	data, _ := json.Marshal(msg)
