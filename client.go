@@ -20,6 +20,7 @@ import (
 type Client struct {
 	addr          string
 	retryCount    int
+	weight        int
 	retryInterval int64
 	initFunc      func(channel netty.Channel)
 	handlers      map[string]JobHandler
@@ -33,13 +34,15 @@ type Client struct {
 }
 
 func NewDefaultClient(addr string, handlers func() map[string]JobHandler) *Client {
-	return NewClient(context.Background(), addr, handlers, 1)
+	return NewClient(context.Background(), WtihDefaultOpts(addr, handlers()))
 }
 
-func NewClient(ctx context.Context, addr string, handlers func() map[string]JobHandler, cronMode int) *Client {
+func NewClient(ctx context.Context, options ...Option) *Client {
+	opts := loadOptions(options...)
+	fmt.Println("halo:", "->", "opt:", opts)
 	cron := cron.New(cron.WithChain(
 		func() cron.JobWrapper {
-			switch cronMode {
+			switch opts.CronMode {
 			case 0:
 				return cron.Recover(cron.DefaultLogger)
 			case 1:
@@ -51,11 +54,12 @@ func NewClient(ctx context.Context, addr string, handlers func() map[string]JobH
 	))
 	ctx, cancel := context.WithCancel(ctx)
 	client := &Client{
-		addr:          addr,
-		retryInterval: 120,
-		retryCount:    3,
+		addr:          opts.Addr,
+		retryInterval: opts.RetryInterval,
+		retryCount:    opts.RetryCount,
 		jobs:          make(map[string]interface{}),
-		handlers:      handlers(),
+		handlers:      opts.Handlers,
+		weight:        opts.Weight,
 		ctx:           ctx,
 		action:        make(chan string),
 		cron:          cron,
@@ -133,19 +137,15 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 		switch sendMsg.Option {
 		case Msg_Job:
 			msgData := sendMsg.Data.(SendData)
-			ants.Submit(func() {
-				if _, ok := c.handlers[msgData.Handler]; ok {
-					sendMsg.Option = Msg_Hunting
-					data, _ := json.Marshal(sendMsg)
-					ctx.Write(string(data))
-					ctx.HandleRead(message)
-				}
-			})
+			if _, ok := c.handlers[msgData.Handler]; ok {
+				sendMsg.Option = Msg_Hunting
+				data, _ := json.Marshal(sendMsg)
+				ctx.Write(string(data))
+				ctx.HandleRead(message)
+			}
 		case Msg_Get:
 			msgData := sendMsg.Data.(JobContext)
-			ants.Submit(func() {
-				c.startNewJob(msgData)
-			})
+			c.startNewJob(msgData)
 		case Msg_Delete:
 			msgData := sendMsg.Data.(string)
 			switch worker := c.jobs[msgData].(type) {

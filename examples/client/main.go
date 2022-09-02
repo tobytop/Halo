@@ -7,14 +7,13 @@ import (
 )
 
 func main() {
-	client := halo.NewDefaultClient("127.0.0.1:8000", func() map[string]halo.JobHandler {
+	halo.NewDefaultClient("127.0.0.1:8000", func() map[string]halo.JobHandler {
 		handlers := make(map[string]halo.JobHandler)
 		handlers["test"] = &TestTask{
 			Name: "tsgggggg",
 		}
 		return handlers
-	})
-	client.StartServer()
+	}).StartServer()
 }
 
 type TestTask struct {
