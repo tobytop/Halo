@@ -256,7 +256,6 @@ func (center *Server) publishJob(handler, jobId string) {
 				if client.status == RUNING {
 					addr = tempaddr
 					center.election.setWegiht(1, addr)
-					break
 				} else {
 					center.election.setWegiht(-1, addr)
 				}
