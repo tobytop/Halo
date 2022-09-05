@@ -12,6 +12,7 @@ import (
 	"github.com/go-netty/go-netty/codec/format"
 	"github.com/go-netty/go-netty/codec/frame"
 	"github.com/panjf2000/ants/v2"
+	"golang.org/x/exp/slices"
 )
 
 type Server struct {
@@ -251,18 +252,14 @@ func (center *Server) publishJob(handler, jobId string) {
 	for {
 		tempaddr := center.election.next()
 		for _, client := range center.connects {
-			for _, h := range client.Types {
-				if h == handler && tempaddr == client.addr {
-					if client.status == RUNING {
-						addr = tempaddr
-						center.election.setWegiht(1, addr)
-						break
-					} else {
-						center.election.setWegiht(-1, addr)
-					}
+			if slices.Contains(client.Types, handler) && tempaddr == client.addr {
+				if client.status == RUNING {
+					addr = tempaddr
+					center.election.setWegiht(1, addr)
+					break
+				} else {
+					center.election.setWegiht(-1, addr)
 				}
-			}
-			if addr != "" {
 				break
 			}
 		}
