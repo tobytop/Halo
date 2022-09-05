@@ -17,10 +17,12 @@ import (
 type Server struct {
 	consortor     Consortor
 	port          string
+	balanceMode   int
 	controlMsg    chan *controlMsg
 	connects      map[string]*serverInfo
 	ctx           context.Context
 	initFunc      func(channel netty.Channel)
+	election      election
 	retryCount    int
 	retryInterval int64
 	mu            sync.Mutex
@@ -45,6 +47,7 @@ type serverInfo struct {
 	Types   []string
 	status  int
 	weight  int
+	addr    string
 }
 
 const (
@@ -53,16 +56,26 @@ const (
 	STOP
 )
 
-func NewServer(ctx context.Context, port int, consortor Consortor) *Server {
+func NewServer(ctx context.Context, port int, balanceMode int, consortor Consortor) *Server {
 	server := &Server{
 		port:          fmt.Sprintf(":%d", port),
 		consortor:     consortor,
 		connects:      make(map[string]*serverInfo),
 		controlMsg:    make(chan *controlMsg),
 		ctx:           ctx,
+		balanceMode:   balanceMode,
 		retryInterval: 120,
 		retryCount:    3,
 	}
+	switch balanceMode {
+	case 1:
+		server.election = &roundRobinBalance{
+			curIndex: 0,
+		}
+	case 2:
+		server.election = &weightRoundRobinBalance{}
+	}
+
 	server.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
 			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024*10, 0, 2, 0, 2)).
@@ -88,17 +101,6 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 	addr := ctx.Channel().RemoteAddr()
 	fmt.Println("halo:", "->", "message:", ctx.Channel().RemoteAddr(), sendMsg)
 	switch sendMsg.Option {
-	case Msg_Hunting:
-		data := sendMsg.Data.(SendData)
-		job := center.consortor.huntingJob(addr, data.JobId)
-		if job != nil {
-			msg := &controlMsg{
-				job:     *job,
-				msgType: sendJob,
-				addr:    addr,
-			}
-			center.controlMsg <- msg
-		}
 	case Msg_Server:
 		data := sendMsg.Data.(map[string]interface{})
 		var (
@@ -128,8 +130,10 @@ func (center *Server) HandleRead(ctx netty.InboundContext, message netty.Message
 				status:  ACTIVE,
 				Types:   handlers,
 				weight:  weight,
+				addr:    addr,
 			}
 		}
+		center.election.add(center.connects[addr])
 	case Msg_JobStatus:
 		data := sendMsg.Data.(string)
 		center.consortor.finishJob(data)
@@ -198,7 +202,9 @@ func (center *Server) reaction() {
 					}
 				})
 			case publishJob:
-				center.publishJob(msg.job.Type, msg.jobId)
+				ants.Submit(func() {
+					center.publishJob(msg.job.Type, msg.jobId)
+				})
 			case lostClient:
 				ants.Submit(func() {
 					center.deleteServer(msg.addr, center.retryCount+1)
@@ -234,23 +240,53 @@ func (center *Server) deleteServer(addr string, count int) {
 		defer center.mu.Unlock()
 		delete(center.connects, addr)
 		center.consortor.removeServerJob(addr)
+		center.election.remove(center.connects[addr])
 	}
 }
 func (center *Server) publishJob(handler, jobId string) {
-	for _, conn := range center.connects {
-		ants.Submit(func() {
-			msg := &SendMsg[SendData]{
-				Option: Msg_Job,
-				Data: SendData{
-					Handler: handler,
-					JobId:   jobId,
-				},
-			}
-			if data, err := json.Marshal(msg); err == nil {
-				if ok := conn.channel.Write(string(data)); !ok {
-					fmt.Println("halo:", "->", "publish:err")
+	if center.getRunningServerNum() == 0 {
+		return
+	}
+	addr := ""
+	for {
+		tempaddr := center.election.next()
+		for _, client := range center.connects {
+			for _, h := range client.Types {
+				if h == handler && tempaddr == client.addr && client.status == RUNING {
+					if client.status == RUNING {
+						addr = tempaddr
+						center.election.setWegiht(1, addr)
+						break
+					} else {
+						center.election.setWegiht(-1, addr)
+					}
 				}
 			}
-		})
+			if addr != "" {
+				break
+			}
+		}
+		if addr != "" {
+			break
+		}
 	}
+	job := center.consortor.huntingJob(addr, jobId)
+	if job != nil {
+		msg := &controlMsg{
+			job:     *job,
+			msgType: sendJob,
+			addr:    addr,
+		}
+		center.controlMsg <- msg
+	}
+}
+
+func (center *Server) getRunningServerNum() int {
+	addrList := []string{}
+	for _, client := range center.connects {
+		if client.status == RUNING {
+			addrList = append(addrList, client.addr)
+		}
+	}
+	return len(addrList)
 }

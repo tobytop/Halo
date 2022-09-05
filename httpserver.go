@@ -25,6 +25,7 @@ func NewHttpServer(port int, tcpserver *Server) *HttpServer {
 	httpMux := http.NewServeMux()
 	httpMux.HandleFunc("/gettaskhandler", server.handlerAllTaskHandler)
 	httpMux.HandleFunc("/addjob", server.handlerAddjob)
+	httpMux.HandleFunc("/runjob", server.handlerRunjob)
 	httpMux.HandleFunc("/listjob", server.handlerListjob)
 	httpMux.HandleFunc("/deletejob", server.handlerDeletejob)
 	server.router = httpMux
@@ -61,8 +62,25 @@ func (h *HttpServer) handlerAddjob(writer http.ResponseWriter, request *http.Req
 		writer.Write([]byte(err.Error()))
 	}
 }
+
 func (h *HttpServer) handlerListjob(writer http.ResponseWriter, request *http.Request) {
 	data, _ := json.Marshal(h.consortor.listJob())
+	writer.Write(data)
+}
+
+func (h *HttpServer) handlerRunjob(writer http.ResponseWriter, request *http.Request) {
+	jobid := request.URL.Query().Get("jobid")
+	job := h.consortor.detailJob(jobid)
+	h.server.controlMsg <- &controlMsg{
+		jobId:   jobid,
+		job:     *job,
+		msgType: publishJob,
+	}
+	reuslt := &ResultData[string]{
+		Message: "Sccuess",
+		Data:    jobid,
+	}
+	data, _ := json.Marshal(reuslt)
 	writer.Write(data)
 }
 

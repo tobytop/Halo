@@ -138,14 +138,6 @@ func (c *Client) HandleRead(ctx netty.InboundContext, message netty.Message) {
 	sendMsg := new(SendMsg[interface{}])
 	if err := json.Unmarshal(data, sendMsg); err == nil {
 		switch sendMsg.Option {
-		case Msg_Job:
-			msgData := sendMsg.Data.(SendData)
-			if _, ok := c.handlers[msgData.Handler]; ok {
-				sendMsg.Option = Msg_Hunting
-				data, _ := json.Marshal(sendMsg)
-				ctx.Write(string(data))
-				ctx.HandleRead(message)
-			}
 		case Msg_Get:
 			msgData := sendMsg.Data.(JobContext)
 			c.startNewJob(msgData)
