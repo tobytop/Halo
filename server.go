@@ -252,7 +252,7 @@ func (center *Server) publishJob(handler, jobId string) {
 		tempaddr := center.election.next()
 		for _, client := range center.connects {
 			for _, h := range client.Types {
-				if h == handler && tempaddr == client.addr && client.status == RUNING {
+				if h == handler && tempaddr == client.addr {
 					if client.status == RUNING {
 						addr = tempaddr
 						center.election.setWegiht(1, addr)
