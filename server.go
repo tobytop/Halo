@@ -251,7 +251,7 @@ func (center *Server) publishJob(handler, jobId string) {
 	addr := ""
 	for {
 		tempaddr := center.election.next()
-		if tempaddr == "" || center.getRunningServerNum() == 0 {
+		if tempaddr == "" || len(center.GetRunningServer()) == 0 {
 			return
 		}
 		for _, client := range center.connects {
@@ -280,12 +280,12 @@ func (center *Server) publishJob(handler, jobId string) {
 	}
 }
 
-func (center *Server) getRunningServerNum() int {
+func (center *Server) GetRunningServer() []string {
 	addrList := []string{}
 	for _, client := range center.connects {
 		if client.status == RUNING {
 			addrList = append(addrList, client.addr)
 		}
 	}
-	return len(addrList)
+	return addrList
 }
