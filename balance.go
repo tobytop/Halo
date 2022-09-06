@@ -54,8 +54,8 @@ func (b *roundRobinBalance) next() string {
 }
 
 type weightRoundRobinBalance struct {
-	curIndex int
-	addrList []*node
+	curAddr  string
+	addrList map[string]*node
 }
 
 type node struct {
@@ -66,18 +66,15 @@ type node struct {
 }
 
 func (b *weightRoundRobinBalance) add(client *serverInfo) {
-	for _, n := range b.addrList {
-		if n.addr == client.addr {
-			return
+	if _, ok := b.addrList[client.addr]; !ok {
+		node := &node{
+			weght:         client.weight,
+			currentWeight: client.weight,
+			stepWeight:    client.weight,
+			addr:          client.addr,
 		}
+		b.addrList[client.addr] = node
 	}
-	node := &node{
-		weght:         client.weight,
-		currentWeight: client.weight,
-		stepWeight:    client.weight,
-		addr:          client.addr,
-	}
-	b.addrList = append(b.addrList, node)
 }
 
 func (b *weightRoundRobinBalance) next() string {
@@ -90,8 +87,8 @@ func (b *weightRoundRobinBalance) next() string {
 		totalWight += value.stepWeight
 		value.currentWeight += value.stepWeight
 		if maxWeghtNode == nil || maxWeghtNode.currentWeight < value.currentWeight {
-			maxWeghtNode = b.addrList[key]
-			b.curIndex = key
+			maxWeghtNode = value
+			b.curAddr = key
 		}
 	}
 	maxWeghtNode.currentWeight -= totalWight
@@ -99,34 +96,20 @@ func (b *weightRoundRobinBalance) next() string {
 }
 
 func (b *weightRoundRobinBalance) remove(client *serverInfo) {
-	index := -1
-	for key, value := range b.addrList {
-		if value.addr == client.addr {
-			index = key
-		}
-	}
-	if index > -1 {
-		if (index + 1) == len(b.addrList) {
-			b.addrList = b.addrList[:index]
-		} else {
-			b.addrList = append(b.addrList[:index], b.addrList[:index+1]...)
-		}
-	}
+	delete(b.addrList, client.addr)
 }
+
 func (b *weightRoundRobinBalance) setWegiht(num int, addr string) {
-	for _, node := range b.addrList {
-		if node.addr == addr {
-			if num > 0 && node.weght > node.stepWeight {
-				if (node.stepWeight + num) > node.weght {
-					node.stepWeight = node.weght
-				} else {
-					node.stepWeight += num
-				}
+	if node, ok := b.addrList[addr]; ok {
+		if num > 0 && node.weght > node.stepWeight {
+			if (node.stepWeight + num) > node.weght {
+				node.stepWeight = node.weght
+			} else {
+				node.stepWeight += num
 			}
-			if num == -1 {
-				node.stepWeight = -1
-			}
-			return
+		}
+		if num == -1 {
+			node.stepWeight = -1
 		}
 	}
 }
