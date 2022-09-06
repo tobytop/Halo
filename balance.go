@@ -1,5 +1,9 @@
 package halo
 
+import (
+	"golang.org/x/exp/slices"
+)
+
 type election interface {
 	add(client *serverInfo)
 	next() string
@@ -13,7 +17,9 @@ type roundRobinBalance struct {
 }
 
 func (b *roundRobinBalance) add(client *serverInfo) {
-	b.addrList = append(b.addrList, client.addr)
+	if !slices.Contains(b.addrList, client.addr) {
+		b.addrList = append(b.addrList, client.addr)
+	}
 }
 func (b *roundRobinBalance) setWegiht(num int, addr string) {
 
@@ -60,6 +66,11 @@ type node struct {
 }
 
 func (b *weightRoundRobinBalance) add(client *serverInfo) {
+	for _, n := range b.addrList {
+		if n.addr == client.addr {
+			return
+		}
+	}
 	node := &node{
 		weght:         client.weight,
 		currentWeight: client.weight,
