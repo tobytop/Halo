@@ -72,9 +72,12 @@ func NewServer(ctx context.Context, port int, balanceMode int, consortor Consort
 	case 1:
 		server.election = &roundRobinBalance{
 			curIndex: 0,
+			addrList: []string{},
 		}
 	case 2:
-		server.election = &weightRoundRobinBalance{}
+		server.election = &weightRoundRobinBalance{
+			addrList: make(map[string]*node),
+		}
 	}
 
 	server.initFunc = func(channel netty.Channel) {
