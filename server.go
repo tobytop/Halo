@@ -245,12 +245,12 @@ func (center *Server) deleteServer(addr string, count int) {
 	}
 }
 func (center *Server) publishJob(handler, jobId string) {
-	if center.getRunningServerNum() == 0 {
-		return
-	}
 	addr := ""
 	for {
 		tempaddr := center.election.next()
+		if tempaddr == "" || center.getRunningServerNum() == 0 {
+			return
+		}
 		for _, client := range center.connects {
 			if slices.Contains(client.Types, handler) && tempaddr == client.addr {
 				if client.status == RUNING {
