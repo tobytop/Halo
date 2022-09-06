@@ -21,9 +21,8 @@ func (b *roundRobinBalance) add(client *serverInfo) {
 		b.addrList = append(b.addrList, client.addr)
 	}
 }
-func (b *roundRobinBalance) setWegiht(num int, addr string) {
+func (b *roundRobinBalance) setWegiht(num int, addr string) {}
 
-}
 func (b *roundRobinBalance) remove(client *serverInfo) {
 	index := -1
 	for key, value := range b.addrList {
