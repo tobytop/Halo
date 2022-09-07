@@ -62,6 +62,9 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 			worker.RetryCount--
 			worker.StartWorker(handler)
 		} else {
+			if err != nil {
+				fmt.Println("halo:", "->", "simpleoworker:", err)
+			}
 			worker.client.action <- worker.Id
 		}
 	}
