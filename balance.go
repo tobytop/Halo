@@ -4,6 +4,11 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+const (
+	RoundRobin = iota
+	WeightRobin
+)
+
 type election interface {
 	add(client *serverInfo)
 	next() string

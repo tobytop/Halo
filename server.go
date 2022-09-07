@@ -69,12 +69,12 @@ func NewServer(ctx context.Context, port int, balanceMode int, consortor Consort
 		retryCount:    3,
 	}
 	switch balanceMode {
-	case 1:
+	case RoundRobin:
 		server.election = &roundRobinBalance{
 			curIndex: 0,
 			addrList: []string{},
 		}
-	case 2:
+	case WeightRobin:
 		server.election = &weightRoundRobinBalance{
 			addrList: make(map[string]*node),
 		}
