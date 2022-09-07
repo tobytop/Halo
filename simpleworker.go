@@ -2,6 +2,7 @@ package halo
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -55,12 +56,11 @@ func (worker *SimpleWorker) StartWorker(handler JobHandler) {
 	case <-worker.ctx.Done():
 		return
 	case <-beginConter.C:
-		if err := handler.Execute(worker.ctx, worker); err != nil {
-			if worker.RetryCount > 0 {
-				worker.StartTime = time.Now().Add(time.Duration(worker.RetryInterval) * time.Second).Unix()
-				worker.RetryCount--
-				worker.StartWorker(handler)
-			}
+		if err := handler.Execute(worker.ctx, worker); err != nil && worker.RetryCount > 0 {
+			fmt.Println("halo:", "->", "simpleoworker:", err)
+			worker.StartTime = time.Now().Add(time.Duration(worker.RetryInterval) * time.Second).Unix()
+			worker.RetryCount--
+			worker.StartWorker(handler)
 		} else {
 			worker.client.action <- worker.Id
 		}
