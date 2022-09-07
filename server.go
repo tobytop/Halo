@@ -80,6 +80,10 @@ func NewServer(ctx context.Context, port int, balanceMode int, consortor Consort
 		}
 	}
 
+	if server.election == nil {
+		panic("add the balance mode")
+	}
+
 	server.initFunc = func(channel netty.Channel) {
 		channel.Pipeline().
 			AddLast(frame.LengthFieldCodec(binary.LittleEndian, 1024*10, 0, 2, 0, 2)).
