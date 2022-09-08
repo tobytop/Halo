@@ -28,6 +28,7 @@ func NewHttpServer(port int, tcpserver *Server) *HttpServer {
 	httpMux.HandleFunc("/runjob", server.handlerRunjob)
 	httpMux.HandleFunc("/listjob", server.handlerListjob)
 	httpMux.HandleFunc("/deletejob", server.handlerDeletejob)
+	httpMux.HandleFunc("/getservers", server.handlerAllServer)
 	server.router = httpMux
 	return server
 }
@@ -120,6 +121,25 @@ func (h *HttpServer) handlerAllTaskHandler(writer http.ResponseWriter, request *
 	reuslt := &ResultData[[]string]{
 		Message: "Sccuess",
 		Data:    allhandlers,
+	}
+	data, _ := json.Marshal(reuslt)
+	writer.Write(data)
+}
+
+func (h *HttpServer) handlerAllServer(writer http.ResponseWriter, request *http.Request) {
+	servers := []ServerStatus{}
+
+	for _, client := range h.server.connects {
+		server := ServerStatus{
+			Address: client.addr,
+			Status:  client.status,
+		}
+		servers = append(servers, server)
+	}
+
+	reuslt := &ResultData[[]ServerStatus]{
+		Message: "Sccuess",
+		Data:    servers,
 	}
 	data, _ := json.Marshal(reuslt)
 	writer.Write(data)

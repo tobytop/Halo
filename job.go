@@ -35,7 +35,10 @@ type ServerInfo struct {
 	Weight   int      `json:"weight"`
 	Handlers []string `json:"handlers"`
 }
-
+type ServerStatus struct {
+	Address string `json:"address"`
+	Status  int    `json:"status"`
+}
 type ResultData[T any] struct {
 	Message string `json:"message"`
 	Data    T      `json:"data"`
