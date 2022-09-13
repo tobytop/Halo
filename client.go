@@ -81,13 +81,13 @@ func (c *Client) reaction() {
 			return
 		case data := <-c.action:
 			ants.Submit(func() {
-				delete(c.jobs, data)
 				msg := &SendMsg[string]{
 					Option: Msg_JobStatus,
 					Data:   data,
 				}
-				data, _ := json.Marshal(msg)
-				c.conn.Write(string(data))
+				sendData, _ := json.Marshal(msg)
+				c.conn.Write(string(sendData))
+				delete(c.jobs, data)
 			})
 		}
 	}
@@ -170,7 +170,7 @@ func (c *Client) reconnect(count int) {
 		return
 	} else {
 		c.retryCount--
-		c.reconnect(count)
+		c.reconnect(c.retryCount)
 	}
 }
 
