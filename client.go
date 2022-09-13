@@ -166,6 +166,8 @@ func (c *Client) reconnect(count int) {
 	if conn, err := c.bootstrap.Connect(c.addr, nil); err == nil || c.retryCount == 0 {
 		if err == nil {
 			c.conn = conn
+		} else if c.retryCount == 0 {
+			c.stop()
 		}
 		return
 	} else {
@@ -188,14 +190,18 @@ func (c *Client) startNewJob(jobInfo JobContext) {
 }
 
 func (c *Client) StopServer() {
-	c.cron.Stop()
+	defer c.stop()
 	if c.conn != nil {
 		sendMsg := &SendMsg[string]{
 			Option: Msg_Stop,
 		}
 		data, _ := json.Marshal(sendMsg)
 		c.conn.Write(string(data))
-		c.bootstrap.Shutdown()
 	}
+}
+
+func (c *Client) stop() {
+	c.bootstrap.Shutdown()
+	c.cron.Stop()
 	c.cancel()
 }
