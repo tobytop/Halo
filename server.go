@@ -215,6 +215,7 @@ func (center *Server) reaction() {
 				})
 			case lostClient:
 				ants.Submit(func() {
+					center.election.remove(center.connects[msg.addr])
 					center.deleteServer(msg.addr, center.retryCount+1)
 				})
 			case deleteJob:
@@ -237,7 +238,7 @@ func (center *Server) deleteServer(addr string, count int) {
 	beginConter := time.NewTimer(time.Duration(center.retryInterval*int64(count-center.retryCount)) * time.Second)
 	defer beginConter.Stop()
 	<-beginConter.C
-	if value, ok := center.connects[addr]; ok && value.status != PENDING {
+	if value, ok := center.connects[addr]; ok && value.status == RUNING {
 		return
 	}
 	center.retryCount--
@@ -246,9 +247,8 @@ func (center *Server) deleteServer(addr string, count int) {
 	} else {
 		center.mu.Lock()
 		defer center.mu.Unlock()
-		delete(center.connects, addr)
+		center.connects[addr].status = STOP
 		center.consortor.removeServerJob(addr)
-		center.election.remove(center.connects[addr])
 	}
 }
 func (center *Server) publishJob(handler, jobId string) {
